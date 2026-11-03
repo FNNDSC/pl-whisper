@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pl-whisper"
+dynamic = ["version"]
+description = "Whisper large-v3, through faster-whisper, over every recording of an input tree: a ChRIS DS plugin on pl-shexec"
+readme = "README.rst"
+license = { text = "MIT" }
+# chris_plugin_info reads the legacy Author, Author-email and Home-page metadata
+# fields, which the [project] table does not emit; setup.cfg supplies them, and the
+# author name lives there alone so Author-email stays a bare address.
+authors = [{ email = "dev@babyMRI.org" }]
+requires-python = ">=3.11"
+# faster-whisper 1.2.1 opens media with av.open(metadata_errors=...), which PyAV 19 removed.
+dependencies = ["chris_plugin>=0.4.0", "shexec>=2.7.0", "faster-whisper>=1.2.1,<2", "av>=16,<19"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+]
+
+[project.urls]
+Homepage = "https://github.com/FNNDSC/pl-whisper"
+
+[project.scripts]
+pl-whisper = "pl_whisper.__main__:main"
+whisper-transcribe = "pl_whisper.transcribe:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.setuptools.packages.find]
+include = ["pl_whisper*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pl_whisper.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "pl_whisper"]
+addopts = "--doctest-modules"

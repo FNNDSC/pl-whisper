@@ -1,0 +1,24 @@
+= pl-whisper: purpose
+:toc:
+
+== Abstract
+
+pl-whisper is a ChRIS DS plugin that transcribes every recording of its input tree with Whisper large-v3, through faster-whisper, on one GPU, and writes each transcript as text, subtitles, a table and JSON, named after the recording, into the matching directory of the output tree, with a record of each run beside it. It is built on pl-shexec, contributing the image with the model, a spec, and `whisper-transcribe`, a command of its own that exits non-zero when a transcription fails. It is the second step of the `Transcribe` pipeline, after pl-ffmpeg.
+
+== The problem
+
+Meetings are recorded and rarely read. A transcript makes a recording searchable and quotable; subtitles make it watchable in a hurry. Whisper large-v3 transcribes speech in ninety-odd languages close to human accuracy, and needs a GPU to do it at a useful speed. ChRIS has GPUs, a feed to hold the recordings and their results, and a plugin model that runs one program over a tree; what it lacked was the plugin.
+
+== What pl-whisper is
+
+pl-shexec's shape, with the model in the image and one command added. The input tree is walked; each file passing `--fileFilter`, by default a case-blind regular expression for the usual video and audio extensions, is one recording, chosen by `--analyzeFileIndex v`; the template hands it to `whisper-transcribe`, which writes `<name>.txt`, `.srt`, `.vtt`, `.tsv` and `.json` into the recording's counterpart directory. The record is one line of JSON per recording in `jobs.jsonl`, with every segment in the command's output; the plugin's own run is one line on standard error; the exit status says whether every recording of some directory completed.
+
+`whisper-transcribe` is the one piece of Python here beyond the spec, and it exists for the record. The two commands that already wrap Whisper, `whisper-ctranslate2` and openai-whisper's `whisper`, catch a failure per file, print it and exit 0; under pl-shexec a failed transcription would be recorded as a success. `whisper-transcribe` decodes first, so a recording that cannot be read fails at once; tries the GPU and falls back to the CPU, saying so; and exits 1 on any failure.
+
+== What pl-whisper is not
+
+It is not a diarizer; the transcript does not say who spoke. It is not a live transcriber; it reads files. It does not convert media for keeping; pl-ffmpeg does, and decodes on a CPU node so the GPU is held only for transcription. It does not choose a model per recording; one model, large-v3, is in the image, and another is named through the template.
+
+== Who uses it
+
+The `Transcribe` pipeline, as its second step. A ChRIS user with recordings in a feed who wants transcripts or subtitles. A pipeline author who needs speech as text.

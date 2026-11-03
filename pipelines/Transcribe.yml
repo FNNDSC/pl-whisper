@@ -1,0 +1,24 @@
+# The Transcribe pipeline: pl-ffmpeg then pl-whisper, a linear chain.
+#
+# pl-ffmpeg writes each recording's audio as a 16 kHz mono WAV named after it; pl-whisper
+# transcribes each WAV on one GPU into .txt, .srt, .vtt, .tsv and .json of the same name.
+# Upload to a CUBE that has both plugins at these versions, through its pipeline source
+# file endpoint (POST /api/v1/pipelines/sourcefiles/, fname=@Transcribe.yml).
+name: Transcribe
+authors: FNNDSC <dev@babyMRI.org>
+category: Utility
+description: >-
+  Transcribes every recording, video or audio, with Whisper large-v3. pl-ffmpeg writes
+  each recording's audio as a 16 kHz mono WAV named after it; pl-whisper transcribes each
+  WAV on one GPU into .txt, .srt, .vtt, .tsv and .json of the same name, in the matching
+  directory. Recordings run one after another; an hour of audio takes a few minutes on
+  the GPU.
+locked: false
+plugin_tree:
+  - title: audio
+    plugin: pl-ffmpeg v1.0.0
+    previous: null
+  - title: transcripts
+    plugin: pl-whisper v1.0.0
+    previous: audio
+    gpu_limit: 1

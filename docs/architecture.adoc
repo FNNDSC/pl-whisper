@@ -1,0 +1,40 @@
+= pl-whisper: architecture
+:toc:
+
+== Abstract
+
+pl-whisper is a spec, a command, an image and a workflow. `pl_whisper/pl_whisper.py` holds the `PluginSpec`, the default template and the media filter; `pl_whisper/__main__.py` is `plugin_build(SPEC)` and the parser and main it returns; `pl_whisper/transcribe.py` is `whisper-transcribe`; `pl_whisper/formats.py` renders a transcript in five formats; `pl_whisper/models.py` holds the transcript's records and re-exports shexec's. The Dockerfile installs CUDA 12's cuBLAS and cuDNN 9 from pip, downloads the model at a fixed revision, and installs the package. `pipelines/Transcribe.yml` is the pipeline.
+
+== Names
+
+The distribution is `pl-whisper`, the package `pl_whisper`, the plugin's command `pl-whisper` and the transcriber's `whisper-transcribe`. Neither can be `whisper`: that is openai-whisper's package and its command. With two console scripts in the distribution, `chris_plugin_info` warns that it found several and takes the first, `pl-whisper`; the workflow and the tests check that the description's `selfexec` is `pl-whisper`.
+
+== The spec
+
+`SPEC` names the plugin `pl-whisper`, gives it the version `1.0.0 (Whisper large-v3)`; the title `Whisper large-v3: each recording transcribed`; the category `Utility`; `8Gi` of memory and two cores, for loading the model, three gigabytes, and for the CPU when the GPU fails; `minGpu=1`, which shexec 2.7 writes as both the minimum and the maximum, since CUBE refuses a description whose minimum exceeds its maximum and chris_plugin writes a maximum of 0 unless told otherwise; `chrisHidden=("threads", "threadsSplit")`, since each thread would load its own model onto the instance's one GPU; `jobMemory="8Gi"`, which caps `--threads` from a shell; and the defaults `exec`, `analyzeFileIndex` and `fileFilter`. The template is `whisper-transcribe %{inputWorkingDir}/%{inputWorkingFile} %{outputWorkingDir}`; the command names its files after the recording itself, so no name tag is needed. The filter is the same regular expression as pl-ffmpeg's, blind to case: faster-whisper decodes any of those formats through PyAV, so the plugin works on recordings directly, and after pl-ffmpeg only the WAVs match.
+
+== whisper-transcribe
+
+`main` parses the command line into `TranscribeOptions`, decodes the recording with faster-whisper's `decode_audio` to 16 kHz mono samples, plans the devices with `devices_plan`, transcribes with `transcript_inferOnDevices`, and writes the files with `transcript_write`; any exception between the decode and the last file is reported on standard error with its type and the command exits 1. Decoding comes first so that a recording that cannot be read fails once, not once per device, and before three gigabytes of model are loaded.
+
+`devices_plan("auto", n)` is the GPU then the CPU when CTranslate2 sees a GPU, the CPU alone when it sees none; `cuda` and `cpu` are themselves, without fallback. `transcript_inferOnDevices` tries each device but the last, prints the failure and the device it moves to, and lets the last device's failure propagate. CUDA failures in CTranslate2 come late: a missing cuBLAS is found at the first encode, not when the model loads, which is why the fallback wraps the whole transcription and why `transcript_infer` consumes faster-whisper's lazy segment generator inside it. Precision is CTranslate2's `auto` on the GPU, float16 where the GPU has it, and `int8` on the CPU. The beam is 5, faster-whisper's and Whisper's default. Each segment is printed as `[start --> end] text` as it comes, which pl-shexec keeps in `jobs.jsonl` and streams at `--verbosity 2`.
+
+The model is `--model`, else `$WHISPER_MODEL`, which the image sets to the downloaded directory, else `large-v3`, which faster-whisper downloads from Hugging Face outside the image.
+
+== The formats
+
+`formats.py` renders a `Transcript` as openai-whisper's command does: `txt` one segment to a line; `srt` numbered cues with `HH:MM:SS,mmm`; `vtt` with the `WEBVTT` header and `HH:MM:SS.mmm`; `tsv` with a `start`, `end`, `text` header and whole milliseconds; `json` with openai-whisper's keys, `text`, `language` and `segments` of `id`, `start`, `end`, `text`, `avg_logprob` and `no_speech_prob`, and the run's own facts beside them, `language_probability`, `duration`, `model`, `device` and `compute_type`. `RENDERERS` maps a format's name to its renderer, and `--formats` is checked against it.
+
+== The image
+
+`python:3.12-slim-trixie`, then `nvidia-cublas-cu12` 12.x and `nvidia-cudnn-cu12` 9.x from pip, with `LD_LIBRARY_PATH` naming their library directories: CTranslate2's GPU path needs those two libraries and nothing else from CUDA, so a CUDA base image would add gigabytes for nothing. The driver is the node's, brought in by the NVIDIA container runtime, which `NVIDIA_DRIVER_CAPABILITIES=compute,utility` asks for; CUDA 12 runs on drivers from 525 on, which argentum's GPU nodes, 535 and 580, have. The model, `Systran/faster-whisper-large-v3` at revision `edaa852`, is downloaded with `huggingface_hub` into `/opt/whisper/large-v3` in a layer before the package, so a code change does not download it again; `WHISPER_MODEL` names it and `HF_HUB_OFFLINE=1` keeps faster-whisper from reaching for the network. The package goes in last. About six gigabytes.
+
+PyAV is held below 19: faster-whisper 1.2.1 opens media with `av.open(metadata_errors=...)`, which PyAV 19 removed, and every decode fails with a `TypeError`.
+
+== The workflow
+
+As pl-ffmpeg's, with the runner's disk freed first, as pl-freesurfer's is, for the size of the image; and with the image checked for `whisper-transcribe --help` and the model's `model.bin`. No upload to cube.chrisproject.org yet; the description is kept as a build artifact.
+
+== Verification
+
+Thirteen tests, one needing a real model, and the formats' doctests. The spec names the model, carries the template, `v` and the filter, and asks for one GPU. A run with no flags over recordings at two depths, one with an upper-case extension, beside notes, an earlier `jobs.jsonl` and subtitles, runs a stand-in `whisper-transcribe` once per recording and never on the others; a stand-in that exits 1 fails the run. ChRIS's parser carries the defaults and not `--threads`, which the command line still takes. `--man` and `--version` are the plugin's own. `chris_plugin_info` describes one GPU at least and at most and 8Gi. With a stand-in model: five files named after the recording less its last extension, with the text, the cues and the JSON's facts; a GPU that fails falls back to the CPU in `int8` and says why; no GPU goes straight to the CPU; `--device cuda` that fails exits 1 and writes nothing; a recording that cannot be decoded exits 1 before any model loads; an unknown format is a usage error. With a real model and a WAV of speech, a transcript with words.

@@ -1,0 +1,25 @@
+= pl-whisper: history
+:toc:
+
+== Abstract
+
+pl-whisper was made on 2026-11-03 with pl-ffmpeg, as the two steps of the `Transcribe` pipeline. This document records the choices made and the table of plugin versions against the model and faster-whisper they carry.
+
+== 2026: the Transcribe pipeline
+
+The operator wanted meeting recordings transcribed in ChRIS, on argentum's GPUs, an RTX A6000 on olympus and two on gangnam. The plugin was cut on pl-shexec, as pl-freesurfer was, rather than from `chris_plugin_template`; decoding went to a plugin of its own, pl-ffmpeg, so that only transcription holds a GPU.
+
+The operator chose faster-whisper with large-v3: CTranslate2's runtime is several times faster than openai-whisper's PyTorch at the same accuracy, and needs only cuBLAS and cuDNN from CUDA. The CPU was accepted as a fallback.
+
+Three things were found while building it. `whisper-ctranslate2`, the planned command, exits 0 when a file fails, which under pl-shexec records a failure as a success; openai-whisper's command does the same; so the plugin carries `whisper-transcribe`, a small command of its own on faster-whisper's library. shexec passed `minGpu` to chris_plugin without a maximum, which then wrote 0, and CUBE refuses a minimum above the maximum; shexec 2.7.0 added `maxGpu` and never writes a maximum below the minimum. And PyAV 19 removed an argument faster-whisper 1.2.1 passes, so PyAV is held below 19.
+
+The defaults are faster-whisper's and Whisper's: all five formats, the language detected, beam 5. The filter is pl-ffmpeg's, so the plugin also works on recordings directly.
+
+== Plugin versions and the model they carry
+
+[cols="1,2,1,3"]
+|===
+| Plugin | Model | faster-whisper | Notes
+
+| 1.0.0 | large-v3 (`Systran/faster-whisper-large-v3` at `edaa852`) | 1.2.1 | First release, on shexec 2.7.0. Registered on BCH's CUBE by hand; not yet on cube.chrisproject.org.
+|===

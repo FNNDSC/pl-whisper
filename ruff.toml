@@ -1,0 +1,48 @@
+# Ruff configuration for the Python style guide in this directory.
+# Copy into a project as ruff.toml, or under [tool.ruff] in pyproject.toml.
+
+target-version = "py311"
+line-length = 100
+
+[lint]
+# The pydoclint (DOC) rules that check Returns, Yields and Raises are still in
+# preview. explicit-preview-rules turns preview on for those codes only, named
+# in full below; no other preview rule is enabled by selecting a prefix.
+preview = true
+explicit-preview-rules = true
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # modern syntax for the target version
+    "B",    # likely bugs
+    "C90",  # cyclomatic complexity, same limit as ESLint's complexity rule
+    "SIM",  # simplifications
+    "ANN",  # type annotations, including ANN401 (no Any)
+    "D",    # docstrings, Google convention below
+    "FA",   # from __future__ import annotations
+    "N",    # pep8-naming, minus the rules the naming section overrides
+    "RUF",  # ruff-specific
+    "DOC201",  # return value not documented under Returns:
+    "DOC202",  # Returns: on a function that returns nothing
+    "DOC402",  # yielded value not documented under Yields:
+    "DOC403",  # Yields: on a function that yields nothing
+    "DOC501",  # raised exception not documented under Raises:
+]
+ignore = [
+    "N802",  # function names: RPN subject_action uses a lowerCamelCase subject
+    "N803",  # argument names are lowerCamelCase
+    "N806",  # local variables are lowerCamelCase
+    "N815",  # class-scope fields are lowerCamelCase
+    "N816",  # module-scope variables are lowerCamelCase
+]
+
+[lint.mccabe]
+max-complexity = 15
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.isort]
+required-imports = ["from __future__ import annotations"]
