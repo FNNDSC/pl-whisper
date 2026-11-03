@@ -1,0 +1,33 @@
+# A local recording to its transcripts, through BCH's CUBE, in one play.
+#
+# Upload the recording into a folder of its own in ChRIS and run the Transcribe
+# pipeline on that folder. chell roots a new feed on it with pl-dircopy, then
+# pl-ffmpeg writes the audio as 16 kHz mono WAV and pl-whisper transcribes it
+# on one of argentum's GPUs; the pipeline line returns when the feed has
+# finished. The pl-whisper run is then reached through /proc/jobs, by the feed
+# and the run's id, and its output downloaded: <name>.txt, .srt, .vtt, .tsv and
+# .json under <OUT>/data/home_chris_uploads_transcribe_<LABEL>/, beside the
+# run's jobs.jsonl.
+#
+# Played from chell, logged in to the CUBE:
+#
+#     play examples/transcribe.mise --param AUDIO=~/meetings/weekly.mp4 --param LABEL=weekly-2026-11-03
+#
+# LABEL names the upload folder, ~/uploads/transcribe/<LABEL>; everything in
+# it is transcribed, so a new recording takes a new label. OUT is where the
+# transcripts land on the machine chell runs on. PIPELINE is the pipeline's
+# /bin name on BCH's CUBE; another CUBE names it differently.
+@name         Transcribe a recording
+@description  Upload a local recording, run the Transcribe pipeline on it (pl-ffmpeg, then pl-whisper on a GPU), and download its transcripts.
+@param        AUDIO
+@param        LABEL
+@param        OUT      = .
+@param        PIPELINE = Transcribe_id293
+@answers      RUN
+
+mkdir -p ~/uploads/transcribe/${LABEL}
+upload ${AUDIO} ~/uploads/transcribe/${LABEL}/
+RUN=$(${PIPELINE} ~/uploads/transcribe/${LABEL})
+expect run ${RUN.leaves} status eq finishedSuccessfully
+cd /proc/jobs/feed_${RUN.feedId}/pl-whisper_${RUN.leaves}/data
+download . ${OUT}

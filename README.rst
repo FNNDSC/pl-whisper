@@ -79,6 +79,17 @@ The Transcribe pipeline
     curl -u user:password -F fname=@pipelines/Transcribe.yml \
         https://cube.example.org/api/v1/pipelines/sourcefiles/
 
+From a local recording, as one script
+-------------------------------------
+
+``examples/transcribe.mise`` takes a recording on your own machine through BCH's CUBE in six lines of `chell <https://github.com/FNNDSC/mise>`_, the ChRIS shell: it uploads the recording into ``~/uploads/transcribe/<LABEL>``, runs the ``Transcribe`` pipeline on that folder, which roots a new feed on it, checks that pl-whisper finished, and downloads the transcripts. Played as
+
+.. code-block:: bash
+
+    play examples/transcribe.mise --param AUDIO=~/meetings/weekly.mp4 --param LABEL=weekly-2026-11-03
+
+it leaves ``weekly.txt``, ``.srt``, ``.vtt``, ``.tsv`` and ``.json`` under ``./data/home_chris_uploads_transcribe_weekly-2026-11-03/``, with the run's ``jobs.jsonl``. A minute of speech took about a minute and a half of pipeline and four and a half minutes of play, most of the rest chell resolving ``/proc/jobs`` to find the pl-whisper run. ``PIPELINE`` defaults to the pipeline's ``/bin`` name on BCH's CUBE, ``Transcribe_id293``; another CUBE names it differently.
+
 Running it
 ----------
 
