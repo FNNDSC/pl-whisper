@@ -1,13 +1,12 @@
 # A local recording to its transcripts, through BCH's CUBE, in one play.
 #
 # Upload the recording into a folder of its own in ChRIS and run the Transcribe
-# pipeline on that folder. chell roots a new feed on it with pl-dircopy, then
+# pipeline from that folder. chell roots a new feed on it with pl-dircopy, then
 # pl-ffmpeg writes the audio as 16 kHz mono WAV and pl-whisper transcribes it
 # on one of argentum's GPUs; the pipeline line returns when the feed has
-# finished. The pl-whisper run is then reached through /proc/jobs, by the feed
-# and the run's id, and its output downloaded: <name>.txt, .srt, .vtt, .tsv and
-# .json under <OUT>/data/home_chris_uploads_transcribe_<LABEL>/, beside the
-# run's jobs.jsonl.
+# finished. The run's leaf, pl-whisper, is then downloaded: <name>.txt, .srt,
+# .vtt, .tsv and .json under <OUT>/data/home_chris_uploads_transcribe_<LABEL>/,
+# beside the run's jobs.jsonl. Needs a chell with leafPaths (mise#1364).
 #
 # Played from chell, logged in to the CUBE:
 #
@@ -27,7 +26,7 @@
 
 mkdir -p ~/uploads/transcribe/${LABEL}
 upload ${AUDIO} ~/uploads/transcribe/${LABEL}/
-RUN=$(${PIPELINE} ~/uploads/transcribe/${LABEL})
+cd ~/uploads/transcribe/${LABEL}
+RUN=$(${PIPELINE})
 expect run ${RUN.leaves} status eq finishedSuccessfully
-cd /proc/jobs/feed_${RUN.feedId}/pl-whisper_${RUN.leaves}/data
-download . ${OUT}
+download ${RUN.leafPaths} ${OUT}
